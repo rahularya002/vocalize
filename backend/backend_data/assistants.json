@@ -1,0 +1,28 @@
+{
+  "1778912f-b194-429b-850f-5c6d4ef1a358": {
+    "name": "rajasthali",
+    "use_case": "sales",
+    "llm_model": "qwen2.5:7b",
+    "embedding_model": "bge-m3",
+    "voice": "en-US-AriaNeural",
+    "assistant_id": "1778912f-b194-429b-850f-5c6d4ef1a358"
+  },
+  "d3d1e746-bcd9-4983-ab07-82e1f8489ba4": {
+    "name": "Test Assistant",
+    "use_case": "support",
+    "llm_model": "qwen2.5:7b",
+    "embedding_model": "bge-m3",
+    "voice": "en-US-AriaNeural",
+    "assistant_id": "d3d1e746-bcd9-4983-ab07-82e1f8489ba4"
+  },
+  "ba1e6c3b-7920-4449-bd8d-6b6d7998f6e4": {
+    "name": "Cloud Demo",
+    "use_case": "support",
+    "provider": "runpod",
+    "llm_model": "remote",
+    "embedding_model": "remote",
+    "voice": "en-US-AriaNeural",
+    "voice_enabled": true,
+    "assistant_id": "ba1e6c3b-7920-4449-bd8d-6b6d7998f6e4"
+  }
+}
