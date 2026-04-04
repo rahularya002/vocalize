@@ -19,6 +19,14 @@ export default function CreateAssistantPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [models, setModels] = useState<ModelsResponse | null>(null);
+
+  const RUNPOD_VOICE_PRESETS = [
+    { label: "English • Female", value: "en-US-AriaNeural" },
+    { label: "English • Male", value: "en-US-GuyNeural" },
+    { label: "Hindi • Female", value: "hi-IN-KajalNeural" },
+    { label: "Hindi • Male", value: "hi-IN-AryanNeural" },
+  ] as const;
+
   const [formData, setFormData] = useState({
     name: "",
     use_case: "support",
@@ -75,6 +83,9 @@ export default function CreateAssistantPage() {
         llm_model: prev.llm_model || "remote",
         embedding_model: prev.embedding_model || "remote",
         voice_enabled: prev.voice_enabled ?? true,
+        voice: RUNPOD_VOICE_PRESETS.some((v) => v.value === prev.voice)
+          ? prev.voice
+          : "en-US-AriaNeural",
       }));
       return;
     }
@@ -260,14 +271,46 @@ export default function CreateAssistantPage() {
             
             {formData.voice_enabled && (
               <div className="space-y-3">
-                <Label htmlFor="voice" className="text-sm font-medium text-card-foreground">Voice Persona</Label>
-                <Input 
-                  id="voice" 
-                  className="bg-background border-border text-card-foreground h-11 px-4 shadow-none w-full"
-                  value={formData.voice}
-                  onChange={(e) => setFormData(prev => ({ ...prev, voice: e.target.value }))}
-                />
-                <p className="text-xs text-muted-foreground font-medium">Edge TTS voice (e.g. en-US-AriaNeural).</p>
+                {formData.provider === "runpod" ? (
+                  <>
+                    <Label htmlFor="runpod_voice" className="text-sm font-medium text-card-foreground">
+                      Runpod Voice (Language + Gender)
+                    </Label>
+                    <Select
+                      value={formData.voice}
+                      onValueChange={(val) => setFormData((prev) => ({ ...prev, voice: val }))}
+                    >
+                      <SelectTrigger className="bg-background border-border text-card-foreground h-11 px-4 shadow-none rounded-lg w-full">
+                        <SelectValue placeholder="Select voice" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border text-card-foreground">
+                        {RUNPOD_VOICE_PRESETS.map((v) => (
+                          <SelectItem key={v.value} value={v.value}>
+                            {v.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      This voice id is passed to your Runpod backend (supports Hindi + male/female).
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Label htmlFor="voice" className="text-sm font-medium text-card-foreground">
+                      Voice Persona
+                    </Label>
+                    <Input
+                      id="voice"
+                      className="bg-background border-border text-card-foreground h-11 px-4 shadow-none w-full"
+                      value={formData.voice}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, voice: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground font-medium">
+                      Edge TTS voice (e.g. en-US-AriaNeural).
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>

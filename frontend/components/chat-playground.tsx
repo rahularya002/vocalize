@@ -5,6 +5,7 @@ import { Send, User, Bot, Play, Square, Loader2, Mic, MicOff } from "lucide-reac
 import { assistantService } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -16,9 +17,11 @@ interface Message {
 export default function ChatPlayground({
   assistantId,
   voiceEnabled = true,
+  assistantVoice,
 }: {
   assistantId: string;
   voiceEnabled?: boolean;
+  assistantVoice?: string;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -27,6 +30,7 @@ export default function ChatPlayground({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [autoPlayVoice, setAutoPlayVoice] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(true);
   
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -36,6 +40,12 @@ export default function ChatPlayground({
   useEffect(() => {
     endOfMessagesRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any)?.SpeechRecognition || (window as any)?.webkitSpeechRecognition;
+    setSpeechSupported(Boolean(SpeechRecognition));
+  }, []);
 
   const handleSend = async (messageOverride?: string) => {
     const message = (messageOverride ?? input).trim();
@@ -176,27 +186,58 @@ export default function ChatPlayground({
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      console.warn("SpeechRecognition API not supported in this browser.");
+      toast.error(
+        "Microphone input isn't supported in this browser. Try Chrome or Edge."
+      );
+      return;
+    }
+
+    if (!(window as any).isSecureContext) {
+      toast.error("Microphone requires HTTPS (or localhost).");
       return;
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
+    // Helps the cloud (Runpod) RAG decide language from the user input.
+    // Azure-style voice ids include `hi-IN-*` for Hindi.
+    const isHindiVoice =
+      typeof assistantVoice === "string" &&
+      assistantVoice.toLowerCase().includes("hi-in-");
+    recognition.lang = isHindiVoice ? "hi-IN" : "en-US";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => setIsListening(true);
-    recognition.onerror = () => setIsListening(false);
+    recognition.onerror = (e: any) => {
+      setIsListening(false);
+      const code = e?.error ? String(e.error) : "unknown";
+      if (code === "not-allowed" || code === "service-not-allowed") {
+        toast.error("Microphone permission blocked. Allow mic access in the browser.");
+        return;
+      }
+      if (code === "no-speech") {
+        toast.error("No speech detected. Try speaking louder/closer to the mic.");
+        return;
+      }
+      toast.error(`Mic error: ${code}`);
+    };
     recognition.onend = () => setIsListening(false);
     recognition.onresult = (event: any) => {
       const transcript = event?.results?.[0]?.[0]?.transcript ?? "";
       if (transcript.trim()) {
         void handleSend(transcript);
+      } else {
+        toast.error("Didn't catch that. Try again.");
       }
     };
 
     speechRef.current = recognition;
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      toast.error("Couldn't start microphone. Try reloading the page.");
+      setIsListening(false);
+    }
   };
 
   const stopListening = () => {
@@ -308,9 +349,14 @@ export default function ChatPlayground({
                 <Button
                   type="button"
                   onClick={() => (isListening ? stopListening() : startListening())}
-                  disabled={isStreaming}
+                  disabled={isStreaming || !speechSupported}
                   size="icon"
                   className="w-9 h-9 rounded-lg bg-muted hover:bg-muted/70 text-foreground mr-2"
+                  title={
+                    !speechSupported
+                      ? "SpeechRecognition not supported (use Chrome/Edge)"
+                      : "Microphone"
+                  }
                 >
                   {isListening ? (
                     <MicOff className="w-3.5 h-3.5" />

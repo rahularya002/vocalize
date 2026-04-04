@@ -89,6 +89,7 @@ export default function DashboardPlaygroundPage() {
         <ChatPlayground
           assistantId={selectedAssistant.assistant_id}
           voiceEnabled={Boolean(selectedAssistant.voice_enabled)}
+          assistantVoice={selectedAssistant.voice}
         />
       </div>
     </div>
