@@ -29,8 +29,36 @@ if [[ ! -f "$NGINX_CONF" ]]; then
   NGINX_CONF="$WORKSPACE/rag-builder/deploy/nginx-runpod.conf"
 fi
 
-PRODUCT_MODULE="${PRODUCT_MODULE:-app:app}"
-BUILDER_MODULE="${BUILDER_MODULE:-main:app}"
+if [[ ! -d "$PRODUCT_DIR" ]]; then
+  echo "ERROR: PRODUCT_DIR is not a directory: $PRODUCT_DIR"
+  exit 1
+fi
+if [[ ! -d "$BUILDER_DIR" ]]; then
+  echo "ERROR: BUILDER_DIR is not a directory: $BUILDER_DIR"
+  exit 1
+fi
+
+# product-rag: many repos use app.py + variable `app`, not main:app
+if [[ -z "${PRODUCT_MODULE:-}" ]]; then
+  if [[ -f "$PRODUCT_DIR/app.py" ]]; then
+    PRODUCT_MODULE="app:app"
+  elif [[ -f "$PRODUCT_DIR/main.py" ]]; then
+    PRODUCT_MODULE="main:app"
+  else
+    echo "ERROR: No app.py or main.py in $PRODUCT_DIR. Set PRODUCT_MODULE (e.g. app:app or main:app)."
+    exit 1
+  fi
+fi
+
+if [[ -z "${BUILDER_MODULE:-}" ]]; then
+  if [[ -f "$BUILDER_DIR/main.py" ]]; then
+    BUILDER_MODULE="main:app"
+  elif [[ -f "$BUILDER_DIR/app.py" ]]; then
+    BUILDER_MODULE="app:app"
+  else
+    BUILDER_MODULE="main:app"
+  fi
+fi
 
 PID_DIR="${PID_DIR:-/tmp/rag-builder-stack}"
 mkdir -p "$PID_DIR"
@@ -104,21 +132,21 @@ if ss -tln 2>/dev/null | grep -qE ':8000\b'; then
   exit 1
 fi
 
-echo "Starting product-rag on 8002: $PRODUCT_DIR"
+echo "Starting product-rag on 8002: $PRODUCT_DIR (uvicorn $PRODUCT_MODULE)"
 (
-  cd "$PRODUCT_DIR"
+  cd "$PRODUCT_DIR" || exit 1
   nohup uvicorn "$PRODUCT_MODULE" --host 0.0.0.0 --port 8002 >>"$PID_DIR/product-rag.log" 2>&1 &
   echo $! >"$PID_DIR/product-rag.pid"
 )
 
-echo "Starting RAG builder on 8001: $BUILDER_DIR"
+echo "Starting RAG builder on 8001: $BUILDER_DIR (uvicorn $BUILDER_MODULE)"
 (
-  cd "$BUILDER_DIR"
+  cd "$BUILDER_DIR" || exit 1
   nohup uvicorn "$BUILDER_MODULE" --host 0.0.0.0 --port 8001 >>"$PID_DIR/vocalize.log" 2>&1 &
   echo $! >"$PID_DIR/vocalize.pid"
 )
 
-sleep 2
+sleep 3
 nginx -t -c "$NGINX_CONF"
 echo "Starting nginx on 8000..."
 nginx -c "$NGINX_CONF"
@@ -130,11 +158,14 @@ echo "  Stop: ./deploy/stop-all.sh"
 
 if command -v curl >/dev/null 2>&1; then
   echo ""
-  code2=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 3 "http://127.0.0.1:8002/docs" || echo "000")
-  code1=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 3 "http://127.0.0.1:8001/health" || echo "000")
+  code2=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 3 "http://127.0.0.1:8002/docs" 2>/dev/null || true)
+  code2=${code2:-000}
+  code1=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 3 "http://127.0.0.1:8001/health" 2>/dev/null || true)
+  code1=${code1:-000}
   if [[ "$code2" != "200" && "$code2" != "307" ]]; then
     echo "WARNING: product-rag on :8002 not OK (HTTP $code2 for /docs). Public / and /docs → 502."
-    echo "         Fix: tail -80 $PID_DIR/product-rag.log"
+    echo "         Check: uvicorn module is correct (often app:app if app.py). Set PRODUCT_MODULE if the ASGI instance is not named 'app'."
+    echo "         Log: tail -80 $PID_DIR/product-rag.log"
   fi
   if [[ "$code1" != "200" ]]; then
     echo "WARNING: vocalize on :8001 /health → HTTP $code1. tail -80 $PID_DIR/vocalize.log"
