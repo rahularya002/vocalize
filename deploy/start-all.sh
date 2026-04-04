@@ -4,7 +4,8 @@
 #
 # Usage:
 #   ./deploy/start-all.sh
-#   ./deploy/start-all.sh --free-8000    # try to kill whatever holds port 8000 first
+#   ./deploy/start-all.sh --free-8000    # kill listeners on 8000 first
+#   ./deploy/start-all.sh --free-all     # kill 8000 + 8001 + 8002 (clean slate)
 #
 # Override paths if your layout differs:
 #   PRODUCT_DIR=/workspace/product-rag/backend BUILDER_DIR=/workspace/vocalize/backend ./deploy/start-all.sh
@@ -12,9 +13,11 @@
 set -euo pipefail
 
 FREE_8000=false
+FREE_ALL=false
 for arg in "$@"; do
   case "$arg" in
     --free-8000) FREE_8000=true ;;
+    --free-all) FREE_ALL=true; FREE_8000=true ;;
   esac
 done
 
@@ -39,6 +42,7 @@ mkdir -p "$PID_DIR"
 export CORS_ALLOW_VERCEL_PREVIEWS="${CORS_ALLOW_VERCEL_PREVIEWS:-true}"
 [[ -n "${CORS_ORIGINS:-}" ]] && export CORS_ORIGINS
 
+# Free a TCP listen port (fuser / lsof / ss — works without psmisc on minimal images).
 kill_port() {
   local p=$1
   if command -v fuser >/dev/null 2>&1; then
@@ -54,10 +58,25 @@ kill_port() {
     fi
     return 0
   fi
-  echo "Note: install 'psmisc' (fuser) or 'lsof' to auto-free port $p, or stop that process manually."
+  # ss is from iproute2 (usually present); parse pid=12345 from users:(("name",pid=123,fd=…))
+  mapfile -t pids < <(ss -tlnp 2>/dev/null | grep -E ":${p}\\b" | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+  if ((${#pids[@]})); then
+    kill -TERM "${pids[@]}" 2>/dev/null || true
+    sleep 1
+    mapfile -t pids < <(ss -tlnp 2>/dev/null | grep -E ":${p}\\b" | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u)
+    if ((${#pids[@]})); then
+      kill -KILL "${pids[@]}" 2>/dev/null || true
+      sleep 1
+    fi
+  fi
 }
 
-if [[ "$FREE_8000" == true ]]; then
+if [[ "$FREE_ALL" == true ]]; then
+  echo "Freeing ports 8000, 8001, 8002..."
+  kill_port 8001
+  kill_port 8002
+  kill_port 8000
+elif [[ "$FREE_8000" == true ]]; then
   echo "Freeing port 8000..."
   kill_port 8000
 fi
