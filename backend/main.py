@@ -1,4 +1,5 @@
 import os
+import re
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,17 +10,32 @@ from routes.models import router as models_router
 from routes.upload import router as upload_router
 
 
+def _env_truthy(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 app = FastAPI(title="RAG Voice AI Assistant Builder API", version="1.0.0")
 
 cors_origins_raw = os.getenv("CORS_ORIGINS", "").strip()
 cors_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
 cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", "").strip() or None
 
+# Vercel Preview URLs look like https://<project>-git-<branch>-<team>.vercel.app
+_vercel_preview_re = r"https://.*\.vercel\.app"
+if _env_truthy("CORS_ALLOW_VERCEL_PREVIEWS"):
+    if cors_origin_regex:
+        cors_origin_regex = f"({_vercel_preview_re})|({cors_origin_regex})"
+    else:
+        cors_origin_regex = _vercel_preview_re
+
+if cors_origin_regex is not None:
+    # Starlette compiles this; invalid regex fails fast at import (fix env and redeploy).
+    re.compile(cors_origin_regex)
+
 app.add_middleware(
     CORSMiddleware,
-    # In production, set `CORS_ORIGINS` (comma-separated) to your Vercel domains.
-    # For Vercel Preview deployments, you can set `CORS_ORIGIN_REGEX` to:
-    #   https://.*\\.vercel\\.app
+    # Vercel production: set CORS_ORIGINS=https://your-domain.com,https://your-app.vercel.app
+    # Vercel previews: set CORS_ALLOW_VERCEL_PREVIEWS=true (or set CORS_ORIGIN_REGEX yourself).
     allow_origins=cors_origins if cors_origins else ["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_origin_regex=cors_origin_regex,
     allow_credentials=False,
