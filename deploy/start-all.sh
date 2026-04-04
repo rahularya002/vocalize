@@ -39,8 +39,10 @@ mkdir -p "$PID_DIR"
 #   CORS_ORIGINS — production custom domains, comma-separated, e.g.
 #     https://myapp.com,https://www.myapp.com
 #   CORS_ALLOW_VERCEL_PREVIEWS — default true: allows any https://*.vercel.app (previews + default *.vercel.app URL)
+#   CORS_ALLOW_ALL=true — set Access-Control-Allow-Origin: * on the API (use if browser still shows CORS + null status)
 export CORS_ALLOW_VERCEL_PREVIEWS="${CORS_ALLOW_VERCEL_PREVIEWS:-true}"
 [[ -n "${CORS_ORIGINS:-}" ]] && export CORS_ORIGINS
+[[ -n "${CORS_ALLOW_ALL:-}" ]] && export CORS_ALLOW_ALL
 
 # Free a TCP listen port (fuser / lsof / ss — works without psmisc on minimal images).
 kill_port() {
