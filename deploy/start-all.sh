@@ -29,7 +29,7 @@ if [[ ! -f "$NGINX_CONF" ]]; then
   NGINX_CONF="$WORKSPACE/rag-builder/deploy/nginx-runpod.conf"
 fi
 
-PRODUCT_MODULE="${PRODUCT_MODULE:-main:app}"
+PRODUCT_MODULE="${PRODUCT_MODULE:-app:app}"
 BUILDER_MODULE="${BUILDER_MODULE:-main:app}"
 
 PID_DIR="${PID_DIR:-/tmp/rag-builder-stack}"
@@ -127,3 +127,16 @@ echo "Done."
 echo "  Logs: $PID_DIR/product-rag.log  $PID_DIR/vocalize.log"
 echo "  Test: curl -sS http://127.0.0.1:8000/health/builder"
 echo "  Stop: ./deploy/stop-all.sh"
+
+if command -v curl >/dev/null 2>&1; then
+  echo ""
+  code2=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 3 "http://127.0.0.1:8002/docs" || echo "000")
+  code1=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 3 "http://127.0.0.1:8001/health" || echo "000")
+  if [[ "$code2" != "200" && "$code2" != "307" ]]; then
+    echo "WARNING: product-rag on :8002 not OK (HTTP $code2 for /docs). Public / and /docs → 502."
+    echo "         Fix: tail -80 $PID_DIR/product-rag.log"
+  fi
+  if [[ "$code1" != "200" ]]; then
+    echo "WARNING: vocalize on :8001 /health → HTTP $code1. tail -80 $PID_DIR/vocalize.log"
+  fi
+fi

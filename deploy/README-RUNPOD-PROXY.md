@@ -41,6 +41,25 @@ time nginx -c /workspace/vocalize/deploy/nginx-runpod.conf -g 'daemon off;'
 | RAG Builder    | 8001          | `/assistant/*`, `/models`, `/health/builder` |
 | Product RAG    | 8002          | everything else (`/`, `/stream`, …)    |
 
+### 502 Bad Gateway on `https://…/docs`
+
+The public path **`/docs`** is routed to **product-rag** (**port 8002**), not Vocalize. **502** means nginx could not get a valid response from **8002** (process not running, wrong `main:app`, crash on import, etc.).
+
+On the pod:
+
+```bash
+tail -80 /tmp/rag-builder-stack/product-rag.log
+curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8002/docs
+```
+
+**Vocalize (RAG builder) Swagger** is only on **8001** from inside the pod:
+
+```bash
+curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8001/docs
+```
+
+There is no public `…/docs` for Vocalize in the default nginx split unless you add a dedicated path or a second proxy port.
+
 ## Easiest: one command (after nginx is installed)
 
 From the repo root on the pod (`vocalize` or `rag-builder`):
