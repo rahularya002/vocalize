@@ -278,7 +278,12 @@ export default function CreateAssistantPage() {
                     </Label>
                     <Select
                       value={formData.voice}
-                      onValueChange={(val) => setFormData((prev) => ({ ...prev, voice: val }))}
+                      onValueChange={(val) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          voice: typeof val === "string" && val ? val : prev.voice,
+                        }))
+                      }
                     >
                       <SelectTrigger className="bg-background border-border text-card-foreground h-11 px-4 shadow-none rounded-lg w-full">
                         <SelectValue placeholder="Select voice" />

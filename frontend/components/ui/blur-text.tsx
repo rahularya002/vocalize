@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 
 interface BlurTextProps {
   text: string;
@@ -19,7 +19,7 @@ export function BlurText({ text, delay = 0, className = "" }: BlurTextProps) {
     }),
   };
 
-  const child = {
+  const child: Variants = {
     visible: {
       opacity: 1,
       filter: "blur(0px)",
