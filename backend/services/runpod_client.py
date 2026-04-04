@@ -7,7 +7,7 @@ import httpx
 
 RUNPOD_BASE_URL = os.getenv(
     "RUNPOD_BASE_URL",
-    "https://6gx3hjf8ejn47d-8000.proxy.runpod.net",
+    "https://3msf2my21g1zl4-8000.proxy.runpod.net",
 ).rstrip("/")
 
 
