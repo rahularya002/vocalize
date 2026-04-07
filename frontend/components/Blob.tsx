@@ -92,10 +92,10 @@ export function Blob() {
          </h1>
 
          <Link 
-           href="/dashboard"
+           href="#"
            className="pointer-events-auto mt-4 flex items-center gap-3 px-10 py-5 bg-white text-[#79C3CC] font-semibold rounded-full hover:scale-105 hover:shadow-2xl transition-all shadow-lg text-xl"
          >
-           Try Demo
+           Coming Soon
            <ArrowRight className="w-6 h-6" />
          </Link>
       </div>
